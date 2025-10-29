@@ -6,6 +6,7 @@ export type ReportData = {
   notes: string[];
   meta?: Record<string, unknown>;
   header?: { soi: string; marker: string };
+  gps?: { latitude: number; longitude: number };
 };
 
 export default function Preview({ data }: { data: ReportData }) {
@@ -26,6 +27,19 @@ export default function Preview({ data }: { data: ReportData }) {
           {data.header && (
             <p className="text-xs text-muted-foreground">
               Header: SOI {data.header.soi}; Marker {data.header.marker} ({data.header.marker === "FFE0" ? "JFIF" : data.header.marker === "FFE1" ? "Exif" : ""}).
+            </p>
+          )}
+          {data.gps && (
+            <p className="text-xs text-muted-foreground">
+              Location: <span className="font-mono">{data.gps.latitude.toFixed(6)}, {data.gps.longitude.toFixed(6)}</span>{" "}
+              <a
+                href={`https://maps.google.com/?q=${data.gps.latitude},${data.gps.longitude}`}
+                target="_blank"
+                rel="noreferrer"
+                className="underline"
+              >
+                Open in Maps
+              </a>
             </p>
           )}
           {data.meta && (

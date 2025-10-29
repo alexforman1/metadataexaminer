@@ -47,6 +47,8 @@ export default function Page() {
   const cmpRows = useMemo(() => diffMetadata(meta, metaB), [meta, metaB]);
 
   const reportData = useMemo(() => {
+    const lat = (meta as any)?.latitude ?? (meta as any)?.GPSLatitude;
+    const lon = (meta as any)?.longitude ?? (meta as any)?.GPSLongitude;
     return {
       files: items.map((i) => ({ name: i.file.name, size: i.file.size, hash: hashes[i.id] || "" })).filter((f) => f.hash),
       notes: [
@@ -56,6 +58,7 @@ export default function Page() {
       ],
       meta: meta,
       header: active ? { soi: headerMap[active.id]?.soi, marker: headerMap[active.id]?.marker } : undefined,
+      gps: lat != null && lon != null ? { latitude: Number(lat), longitude: Number(lon) } : undefined,
     };
   }, [items, hashes, meta, headerMap, active]);
 
@@ -107,6 +110,24 @@ export default function Page() {
                     <span className="font-mono">{active.file.name}</span> — {Math.round(active.file.size / 1024)} KB
                     <br />Hash: <span className="font-mono break-all">{hashes[active.id]}</span>
                   </div>
+                  <Separator />
+                  {/* Location (if available) */}
+                  {(() => {
+                    const lat = (meta as any)?.latitude ?? (meta as any)?.GPSLatitude;
+                    const lon = (meta as any)?.longitude ?? (meta as any)?.GPSLongitude;
+                    if (lat == null || lon == null) return null;
+                    const latNum = Number(lat);
+                    const lonNum = Number(lon);
+                    const mapsUrl = `https://maps.google.com/?q=${latNum},${lonNum}`;
+                    return (
+                      <div className="text-xs">
+                        Location: <span className="font-mono">{latNum.toFixed(6)}, {lonNum.toFixed(6)}</span>{" "}
+                        <a href={mapsUrl} target="_blank" rel="noreferrer" className="underline">
+                          Open in Maps
+                        </a>
+                      </div>
+                    );
+                  })()}
                   <Separator />
                   <HeaderPeek
                     soi={headerMap[active.id]?.soi}
