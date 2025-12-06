@@ -6,7 +6,7 @@ export type ReportData = {
   notes: string[];
   meta?: Record<string, unknown>;
   header?: { soi: string; marker: string };
-  gps?: { latitude: number; longitude: number };
+  gps?: { latitude: number; longitude: number; address?: string };
 };
 
 export default function Preview({ data }: { data: ReportData }) {
@@ -39,17 +39,24 @@ export default function Preview({ data }: { data: ReportData }) {
         )}
         
         {data.gps && (
-          <div className="text-sm border-t pt-2">
+          <div className="text-sm border-t pt-2 space-y-1">
             <p className="text-muted-foreground">
-              <strong>Location:</strong> <span className="font-mono">{data.gps.latitude.toFixed(6)}, {data.gps.longitude.toFixed(6)}</span>
-              {" "}(<a
+              <strong>Coordinates:</strong> <span className="font-mono">{data.gps.latitude.toFixed(6)}, {data.gps.longitude.toFixed(6)}</span>
+            </p>
+            {data.gps.address && (
+              <p className="text-muted-foreground">
+                <strong>Address:</strong> {data.gps.address}
+              </p>
+            )}
+            <p className="text-muted-foreground">
+              <a
                 href={`https://maps.google.com/?q=${data.gps.latitude},${data.gps.longitude}`}
                 target="_blank"
                 rel="noreferrer"
                 className="underline text-blue-600"
               >
                 Open in Maps
-              </a>)
+              </a>
             </p>
           </div>
         )}

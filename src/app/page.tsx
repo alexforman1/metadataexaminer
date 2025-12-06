@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,10 +8,12 @@ import { MetaTable } from "@/components/MetaTable";
 import { CompareMatrix } from "@/components/CompareMatrix";
 import { HeaderPeek } from "@/components/HeaderPeek";
 import { Toolbar } from "@/components/Toolbar";
+import { MapModal } from "@/components/MapModal";
 import { parseExif } from "@/lib/exif";
 import { sha256 } from "@/lib/hash";
 import { readHeader } from "@/lib/header";
 import { diffMetadata } from "@/lib/diff";
+import { reverseGeocode } from "@/lib/geocode";
 import Preview from "./report/Preview";
 import PDFPreview from "./report/PDFPreview";
 
@@ -23,6 +25,9 @@ export default function Page() {
   const [metaB, setMetaB] = useState<Record<string, unknown>>({});
   const [hashes, setHashes] = useState<Record<string, string>>({});
   const [headerMap, setHeaderMap] = useState<Record<string, { bytes: Uint8Array; soi: string; marker: string }>>({});
+  const [address, setAddress] = useState<string | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [mapCoords, setMapCoords] = useState<{ lat: number; lon: number } | null>(null);
 
   async function onUpload(newItems: UploadItem[]) {
     setItems((prev) => [...prev, ...newItems]);
@@ -45,6 +50,19 @@ export default function Page() {
     which === "A" ? setMeta(data) : setMetaB(data);
   }
 
+  // Reverse geocode when GPS coordinates are available
+  useEffect(() => {
+    const lat = (meta as any)?.latitude ?? (meta as any)?.GPSLatitude;
+    const lon = (meta as any)?.longitude ?? (meta as any)?.GPSLongitude;
+    if (lat != null && lon != null) {
+      const latNum = Number(lat);
+      const lonNum = Number(lon);
+      reverseGeocode(latNum, lonNum).then(setAddress).catch(() => setAddress(null));
+    } else {
+      setAddress(null);
+    }
+  }, [meta]);
+
   const cmpRows = useMemo(() => diffMetadata(meta, metaB), [meta, metaB]);
 
   const reportData = useMemo(() => {
@@ -60,9 +78,9 @@ export default function Page() {
       ],
       meta: meta,
       header: active ? { soi: headerMap[active.id]?.soi, marker: headerMap[active.id]?.marker } : undefined,
-      gps: lat != null && lon != null ? { latitude: Number(lat), longitude: Number(lon) } : undefined,
+      gps: lat != null && lon != null ? { latitude: Number(lat), longitude: Number(lon), address: address || undefined } : undefined,
     };
-  }, [items, hashes, meta, headerMap, active]);
+  }, [items, hashes, meta, headerMap, active, address]);
 
   return (
     <main className="container mx-auto grid gap-6 p-6 lg:grid-cols-3">
@@ -120,13 +138,25 @@ export default function Page() {
                     if (lat == null || lon == null) return null;
                     const latNum = Number(lat);
                     const lonNum = Number(lon);
-                    const mapsUrl = `https://maps.google.com/?q=${latNum},${lonNum}`;
                     return (
-                      <div className="text-xs">
-                        Location: <span className="font-mono">{latNum.toFixed(6)}, {lonNum.toFixed(6)}</span>{" "}
-                        <a href={mapsUrl} target="_blank" rel="noreferrer" className="underline">
-                          Open in Maps
-                        </a>
+                      <div className="text-xs space-y-1">
+                        <div>
+                          <strong>Coordinates:</strong> <span className="font-mono">{latNum.toFixed(6)}, {lonNum.toFixed(6)}</span>
+                        </div>
+                        {address && (
+                          <div>
+                            <strong>Address:</strong> {address}
+                          </div>
+                        )}
+                        <button
+                          onClick={() => {
+                            setMapCoords({ lat: latNum, lon: lonNum });
+                            setMapOpen(true);
+                          }}
+                          className="text-blue-600 hover:underline"
+                        >
+                          View on Map
+                        </button>
                       </div>
                     );
                   })()}
@@ -188,6 +218,17 @@ export default function Page() {
           </CardContent>
         </Card>
       </section>
+
+      {/* Map Modal */}
+      {mapCoords && (
+        <MapModal
+          open={mapOpen}
+          onOpenChange={setMapOpen}
+          latitude={mapCoords.lat}
+          longitude={mapCoords.lon}
+          address={address}
+        />
+      )}
     </main>
   );
 }

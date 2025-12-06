@@ -5,7 +5,7 @@ export type ReportData = {
   notes: string[];
   meta?: Record<string, unknown>;
   header?: { soi: string; marker: string };
-  gps?: { latitude: number; longitude: number };
+  gps?: { latitude: number; longitude: number; address?: string };
 };
 
 // PDF-friendly version with explicit RGB colors (no oklch/lab)
@@ -120,18 +120,27 @@ export default function PDFPreview({ data }: { data: ReportData }) {
             )}
             {data.gps && (
               <div style={{ marginBottom: "12px" }}>
-                <strong>Geographic Coordinates:</strong>{" "}
-                <code style={{ fontFamily: "monospace" }}>
-                  {data.gps.latitude.toFixed(6)}°N, {data.gps.longitude.toFixed(6)}°E
-                </code>
-                {" "}(<a
-                  href={`https://maps.google.com/?q=${data.gps.latitude},${data.gps.longitude}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ color: "#0000ee", textDecoration: "underline" }}
-                >
-                  View on Map
-                </a>)
+                <div style={{ marginBottom: "4px" }}>
+                  <strong>Geographic Coordinates:</strong>{" "}
+                  <code style={{ fontFamily: "monospace" }}>
+                    {data.gps.latitude.toFixed(6)}°N, {data.gps.longitude.toFixed(6)}°E
+                  </code>
+                </div>
+                {data.gps.address && (
+                  <div style={{ marginBottom: "4px" }}>
+                    <strong>Address:</strong> {data.gps.address}
+                  </div>
+                )}
+                <div>
+                  (<a
+                    href={`https://maps.google.com/?q=${data.gps.latitude},${data.gps.longitude}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: "#0000ee", textDecoration: "underline" }}
+                  >
+                    View on Map
+                  </a>)
+                </div>
               </div>
             )}
           </div>

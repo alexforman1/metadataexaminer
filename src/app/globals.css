@@ -120,3 +120,6 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Leaflet CSS */
+@import "leaflet/dist/leaflet.css";
