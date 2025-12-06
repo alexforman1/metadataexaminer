@@ -73,8 +73,63 @@ export async function exportReport(elementId: string, filename = "metadata-repor
       )
     );
 
-    // Force RGB colors before PDF generation
-    forceRGBColors(el);
+    // Create a completely isolated clone with only RGB colors
+    const isolatedClone = el.cloneNode(true) as HTMLElement;
+    isolatedClone.id = `${elementId}-pdf-clone`;
+    
+    // Apply computed RGB styles to the clone
+    const applyRGBStyles = (original: Element, clone: Element) => {
+      const origEl = original as HTMLElement;
+      const cloneEl = clone as HTMLElement;
+      
+      if (origEl && cloneEl) {
+        const computed = window.getComputedStyle(origEl);
+        
+        // Apply all computed RGB colors as inline styles
+        try {
+          const bg = computed.backgroundColor;
+          if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
+            cloneEl.style.backgroundColor = bg;
+          }
+          
+          const color = computed.color;
+          if (color) {
+            cloneEl.style.color = color;
+          }
+          
+          const border = computed.borderColor;
+          if (border && border !== "rgba(0, 0, 0, 0)") {
+            cloneEl.style.borderColor = border;
+            cloneEl.style.borderStyle = computed.borderStyle;
+            cloneEl.style.borderWidth = computed.borderWidth;
+          }
+          
+          // Copy other important styles
+          cloneEl.style.padding = computed.padding;
+          cloneEl.style.margin = computed.margin;
+          cloneEl.style.fontSize = computed.fontSize;
+          cloneEl.style.fontFamily = computed.fontFamily;
+          cloneEl.style.fontWeight = computed.fontWeight;
+        } catch (e) {
+          // Ignore
+        }
+      }
+      
+      // Process children
+      const origChildren = Array.from(original.children);
+      const cloneChildren = Array.from(clone.children);
+      for (let i = 0; i < Math.min(origChildren.length, cloneChildren.length); i++) {
+        applyRGBStyles(origChildren[i], cloneChildren[i]);
+      }
+    };
+    
+    applyRGBStyles(el, isolatedClone);
+    
+    // Temporarily append to body (hidden) for html2canvas
+    isolatedClone.style.position = "absolute";
+    isolatedClone.style.left = "-9999px";
+    isolatedClone.style.top = "0";
+    document.body.appendChild(isolatedClone);
 
     // Configure html2pdf with better settings
     const opt = {
@@ -87,63 +142,14 @@ export async function exportReport(elementId: string, filename = "metadata-repor
         logging: false,
         letterRendering: true,
         onclone: (clonedDoc: Document) => {
-          // Remove all style tags with oklch/lab from cloned document
+          // Remove ALL stylesheets and style tags from cloned document
           const styleTags = clonedDoc.querySelectorAll("style");
-          styleTags.forEach((style) => {
-            if (style.textContent?.includes("oklch") || style.textContent?.includes("lab")) {
-              style.remove();
-            }
-          });
+          styleTags.forEach((style) => style.remove());
           
-          // Remove link tags to external stylesheets that might have oklch
           const linkTags = clonedDoc.querySelectorAll('link[rel="stylesheet"]');
           linkTags.forEach((link) => link.remove());
           
-          const clonedElement = clonedDoc.getElementById(elementId);
-          if (!clonedElement) return;
-          
-          // Get original element for computed styles
-          const originalElement = document.getElementById(elementId);
-          if (!originalElement) return;
-          
-          // Copy computed RGB styles to cloned elements
-          const copyStyles = (original: Element, cloned: Element) => {
-            const originalEl = original as HTMLElement;
-            const clonedEl = cloned as HTMLElement;
-            
-            if (originalEl && clonedEl) {
-              const computed = window.getComputedStyle(originalEl);
-              
-              try {
-                // Force RGB colors as inline styles
-                const bg = computed.backgroundColor;
-                if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
-                  clonedEl.style.setProperty("background-color", bg, "important");
-                }
-                
-                const color = computed.color;
-                if (color) {
-                  clonedEl.style.setProperty("color", color, "important");
-                }
-                
-                const border = computed.borderColor;
-                if (border && border !== "rgba(0, 0, 0, 0)") {
-                  clonedEl.style.setProperty("border-color", border, "important");
-                }
-              } catch (e) {
-                // Ignore
-              }
-            }
-            
-            // Process children
-            const origChildren = Array.from(original.children);
-            const clonedChildren = Array.from(cloned.children);
-            for (let i = 0; i < Math.min(origChildren.length, clonedChildren.length); i++) {
-              copyStyles(origChildren[i], clonedChildren[i]);
-            }
-          };
-          
-          copyStyles(originalElement, clonedElement);
+          // All styles should already be inline from our isolated clone
         },
       },
       jsPDF: {
@@ -153,9 +159,17 @@ export async function exportReport(elementId: string, filename = "metadata-repor
       },
     };
 
-    await html2pdf().set(opt).from(el).save();
+    await html2pdf().set(opt).from(isolatedClone).save();
+    
+    // Clean up
+    document.body.removeChild(isolatedClone);
   } catch (error) {
     console.error("PDF export failed:", error);
+    // Clean up on error
+    const clone = document.getElementById(`${elementId}-pdf-clone`);
+    if (clone) {
+      document.body.removeChild(clone);
+    }
     alert("Failed to generate PDF. Please try again or check the browser console.");
   }
 }
