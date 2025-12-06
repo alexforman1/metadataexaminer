@@ -45,17 +45,20 @@ function forceRGBColors(element: HTMLElement) {
   });
 }
 
-export async function exportReport(elementId: string, filename = "metadata-report.pdf") {
+export async function exportReport(elementId: string = "report-root-pdf", filename = "metadata-report.pdf") {
   if (typeof window === "undefined") return;
   
   try {
     const html2pdf = (await import("html2pdf.js")).default;
+    // Use the PDF-specific version which has explicit RGB colors (no oklch/lab)
     const el = document.getElementById(elementId);
     
     if (!el) {
       console.error("Report element not found:", elementId);
       return;
     }
+    
+    // PDFPreview uses only inline RGB styles, no CSS variables or oklch/lab
 
     // Wait for images to load
     const images = el.querySelectorAll("img");
@@ -73,63 +76,19 @@ export async function exportReport(elementId: string, filename = "metadata-repor
       )
     );
 
-    // Create a completely isolated clone with only RGB colors
-    const isolatedClone = el.cloneNode(true) as HTMLElement;
-    isolatedClone.id = `${elementId}-pdf-clone`;
+    // PDFPreview already has explicit RGB colors, so we can use it directly
+    // But we need to make it visible temporarily for html2canvas
+    const originalVisibility = el.style.visibility;
+    const originalPosition = el.style.position;
+    const originalLeft = el.style.left;
+    const originalTop = el.style.top;
     
-    // Apply computed RGB styles to the clone
-    const applyRGBStyles = (original: Element, clone: Element) => {
-      const origEl = original as HTMLElement;
-      const cloneEl = clone as HTMLElement;
-      
-      if (origEl && cloneEl) {
-        const computed = window.getComputedStyle(origEl);
-        
-        // Apply all computed RGB colors as inline styles
-        try {
-          const bg = computed.backgroundColor;
-          if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
-            cloneEl.style.backgroundColor = bg;
-          }
-          
-          const color = computed.color;
-          if (color) {
-            cloneEl.style.color = color;
-          }
-          
-          const border = computed.borderColor;
-          if (border && border !== "rgba(0, 0, 0, 0)") {
-            cloneEl.style.borderColor = border;
-            cloneEl.style.borderStyle = computed.borderStyle;
-            cloneEl.style.borderWidth = computed.borderWidth;
-          }
-          
-          // Copy other important styles
-          cloneEl.style.padding = computed.padding;
-          cloneEl.style.margin = computed.margin;
-          cloneEl.style.fontSize = computed.fontSize;
-          cloneEl.style.fontFamily = computed.fontFamily;
-          cloneEl.style.fontWeight = computed.fontWeight;
-        } catch (e) {
-          // Ignore
-        }
-      }
-      
-      // Process children
-      const origChildren = Array.from(original.children);
-      const cloneChildren = Array.from(clone.children);
-      for (let i = 0; i < Math.min(origChildren.length, cloneChildren.length); i++) {
-        applyRGBStyles(origChildren[i], cloneChildren[i]);
-      }
-    };
-    
-    applyRGBStyles(el, isolatedClone);
-    
-    // Temporarily append to body (hidden) for html2canvas
-    isolatedClone.style.position = "absolute";
-    isolatedClone.style.left = "-9999px";
-    isolatedClone.style.top = "0";
-    document.body.appendChild(isolatedClone);
+    // Make it visible for html2canvas
+    el.style.visibility = "visible";
+    el.style.position = "absolute";
+    el.style.left = "0";
+    el.style.top = "0";
+    el.style.zIndex = "9999";
 
     // Configure html2pdf with better settings
     const opt = {
@@ -143,13 +102,12 @@ export async function exportReport(elementId: string, filename = "metadata-repor
         letterRendering: true,
         onclone: (clonedDoc: Document) => {
           // Remove ALL stylesheets and style tags from cloned document
+          // PDFPreview uses only inline styles, so this is just extra safety
           const styleTags = clonedDoc.querySelectorAll("style");
           styleTags.forEach((style) => style.remove());
           
           const linkTags = clonedDoc.querySelectorAll('link[rel="stylesheet"]');
           linkTags.forEach((link) => link.remove());
-          
-          // All styles should already be inline from our isolated clone
         },
       },
       jsPDF: {
@@ -159,16 +117,23 @@ export async function exportReport(elementId: string, filename = "metadata-repor
       },
     };
 
-    await html2pdf().set(opt).from(isolatedClone).save();
+    await html2pdf().set(opt).from(el).save();
     
-    // Clean up
-    document.body.removeChild(isolatedClone);
+    // Restore original styles
+    el.style.visibility = originalVisibility;
+    el.style.position = originalPosition;
+    el.style.left = originalLeft;
+    el.style.top = originalTop;
+    el.style.zIndex = "";
   } catch (error) {
     console.error("PDF export failed:", error);
-    // Clean up on error
-    const clone = document.getElementById(`${elementId}-pdf-clone`);
-    if (clone) {
-      document.body.removeChild(clone);
+    // Restore styles on error
+    const el = document.getElementById(elementId);
+    if (el) {
+      el.style.visibility = "hidden";
+      el.style.position = "absolute";
+      el.style.left = "-9999px";
+      el.style.top = "-9999px";
     }
     alert("Failed to generate PDF. Please try again or check the browser console.");
   }

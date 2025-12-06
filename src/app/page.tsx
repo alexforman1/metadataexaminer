@@ -13,6 +13,7 @@ import { sha256 } from "@/lib/hash";
 import { readHeader } from "@/lib/header";
 import { diffMetadata } from "@/lib/diff";
 import Preview from "./report/Preview";
+import PDFPreview from "./report/PDFPreview";
 
 export default function Page() {
   const [items, setItems] = useState<UploadItem[]>([]);
@@ -180,6 +181,10 @@ export default function Page() {
         <Card>
           <CardContent className="p-4">
             <Preview data={reportData} />
+            {/* Hidden PDF version with explicit RGB colors */}
+            <div style={{ position: "absolute", left: "-9999px", top: "-9999px", visibility: "hidden" }}>
+              <PDFPreview data={reportData} />
+            </div>
           </CardContent>
         </Card>
       </section>

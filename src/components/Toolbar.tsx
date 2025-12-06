@@ -10,7 +10,8 @@ export function Toolbar({ targetId }: { targetId: string }) {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      await exportReport(targetId);
+      // Use PDF-specific version which has explicit RGB colors
+      await exportReport("report-root-pdf");
     } finally {
       setIsExporting(false);
     }
