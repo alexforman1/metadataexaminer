@@ -5,7 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Uploader, UploadItem } from "@/components/Uploader";
 import { MetaTable } from "@/components/MetaTable";
-import { CompareTable } from "@/components/CompareTable";
+import { CompareMatrix } from "@/components/CompareMatrix";
 import { HeaderPeek } from "@/components/HeaderPeek";
 import { Toolbar } from "@/components/Toolbar";
 import { parseExif } from "@/lib/exif";
@@ -55,6 +55,7 @@ export default function Page() {
         "Processing occurs locally in your browser; files are not uploaded or stored.",
         "EXIF timestamps may be inaccurate due to device clock changes or failures; seek corroboration (e.g., location, lighting/sun position, other artifacts).",
         "Hashes are provided to demonstrate integrity of the files as provided to this tool (educational use).",
+        "Edits via iOS Markup often do not update EXIF ModifyDate; hashes may differ while metadata times remain unchanged.",
       ],
       meta: meta,
       header: active ? { soi: headerMap[active.id]?.soi, marker: headerMap[active.id]?.marker } : undefined,
@@ -79,7 +80,7 @@ export default function Page() {
               >
                 <div className="relative aspect-square w-full overflow-hidden rounded-lg">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={it.url} alt={it.file.name} className="h-full w-full object-cover" />
+                  <img src={it.previewUrl || it.url} alt={it.file.name} className="h-full w-full object-cover" />
                 </div>
                 <div className="mt-2 truncate text-xs font-mono">{it.file.name}</div>
                 <div className="text-[10px] text-muted-foreground">SHA-256: {hashes[it.id]?.slice(0, 10)}…</div>
@@ -104,7 +105,7 @@ export default function Page() {
                 <>
                   <div className="relative h-48 w-full overflow-hidden rounded-xl border">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={active.url} alt={active.file.name} className="h-full w-full object-contain" />
+                    <img src={active.previewUrl || active.url} alt={active.file.name} className="h-full w-full object-contain" />
                   </div>
                   <div className="text-xs text-muted-foreground">
                     <span className="font-mono">{active.file.name}</span> — {Math.round(active.file.size / 1024)} KB
@@ -170,7 +171,7 @@ export default function Page() {
                 </select>
               </div>
               <div className="rounded-xl border p-2">
-                <CompareTable rows={cmpRows} />
+                <CompareMatrix rows={cmpRows} />
               </div>
             </div>
           </CardContent>

@@ -10,6 +10,7 @@
 - This demo does not store or retain files; all processing occurs in the browser.
 - EXIF timestamps can be inaccurate due to device clock changes or failures; corroborate with other artifacts (location, lighting/sun position, etc.).
 - Hashes are provided for integrity of the files as uploaded to this tool (educational use).
+- Edits via iOS Markup often do not update EXIF ModifyDate; hashes may differ while metadata times remain unchanged.
 
 ## Run locally
 ```bash

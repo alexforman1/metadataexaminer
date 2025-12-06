@@ -2,18 +2,26 @@
 import { useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload } from "lucide-react";
+import { getPreviewUrl } from "@/lib/preview";
 
-export type UploadItem = { file: File; url: string; id: string };
+export type UploadItem = { file: File; url: string; previewUrl: string; id: string };
 
 export function Uploader({ onFiles }: { onFiles: (files: UploadItem[]) => void }) {
   const handleFiles = useCallback(
-    (fileList: FileList | null) => {
+    async (fileList: FileList | null) => {
       if (!fileList) return;
-      const items: UploadItem[] = Array.from(fileList).map((file, i) => ({
-        file,
-        url: URL.createObjectURL(file),
-        id: `${file.name}-${file.size}-${i}-${Date.now()}`,
-      }));
+      const items: UploadItem[] = await Promise.all(
+        Array.from(fileList).map(async (file, i) => {
+          const url = URL.createObjectURL(file);
+          const previewUrl = await getPreviewUrl(file, url);
+          return {
+            file,
+            url,
+            previewUrl,
+            id: `${file.name}-${file.size}-${i}-${Date.now()}`,
+          };
+        })
+      );
       onFiles(items);
     },
     [onFiles]
@@ -42,10 +50,10 @@ export function Uploader({ onFiles }: { onFiles: (files: UploadItem[]) => void }
           onDrop={handleDrop}
         >
           <Upload className="h-6 w-6" />
-          <div className="text-sm">Drag & drop images or click to choose (JPG/PNG)</div>
+          <div className="text-sm">Drag & drop images or click to choose (JPG/PNG/HEIC)</div>
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.HEIC"
             multiple
             className="hidden"
             onChange={(e) => handleFiles(e.target.files)}
