@@ -1,44 +1,43 @@
-// Helper to convert oklch/lab colors to RGB via computed styles
-function convertColorsToRGB(element: HTMLElement) {
+// Helper to force all colors to RGB by removing CSS variables and using computed styles
+function forceRGBColors(element: HTMLElement) {
+  // Remove all style tags that might contain oklch/lab
+  const styleTags = element.ownerDocument.querySelectorAll("style");
+  styleTags.forEach((style) => {
+    if (style.textContent?.includes("oklch") || style.textContent?.includes("lab")) {
+      style.remove();
+    }
+  });
+  
+  // Force inline RGB colors on all elements
   const allElements = element.querySelectorAll("*");
   const elementsArray = [element, ...Array.from(allElements)];
   
   elementsArray.forEach((el) => {
     const htmlEl = el as HTMLElement;
-    const computedStyle = window.getComputedStyle(htmlEl);
+    const computed = window.getComputedStyle(htmlEl);
     
-    // Get all color properties and convert them
-    const colorProps = [
-      "backgroundColor",
-      "color",
-      "borderColor",
-      "borderTopColor",
-      "borderRightColor",
-      "borderBottomColor",
-      "borderLeftColor",
-    ];
+    // Remove CSS custom properties
+    htmlEl.style.removeProperty("--background");
+    htmlEl.style.removeProperty("--foreground");
+    htmlEl.style.removeProperty("--card");
+    htmlEl.style.removeProperty("--muted");
+    htmlEl.style.removeProperty("--border");
     
-    colorProps.forEach((prop) => {
-      const value = computedStyle.getPropertyValue(prop);
-      if (value && !value.includes("oklch") && !value.includes("lab")) {
-        // Only set if it's already RGB/rgba/hex
-        try {
-          htmlEl.style.setProperty(prop, value, "important");
-        } catch (e) {
-          // Ignore errors
-        }
-      }
-    });
-    
-    // Force RGB conversion by reading computed style and setting it
+    // Force RGB colors from computed styles
     try {
-      const bg = computedStyle.backgroundColor;
-      if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
-        htmlEl.style.backgroundColor = bg;
+      const bg = computed.backgroundColor;
+      if (bg && !bg.includes("oklch") && !bg.includes("lab")) {
+        htmlEl.style.setProperty("background-color", bg, "important");
       }
-      const color = computedStyle.color;
-      if (color) {
-        htmlEl.style.color = color;
+      
+      const color = computed.color;
+      if (color && !color.includes("oklch") && !color.includes("lab")) {
+        htmlEl.style.setProperty("color", color, "important");
+      }
+      
+      const border = computed.borderColor;
+      if (border && !border.includes("oklch") && !border.includes("lab")) {
+        htmlEl.style.setProperty("border-color", border, "important");
       }
     } catch (e) {
       // Ignore errors
@@ -74,8 +73,8 @@ export async function exportReport(elementId: string, filename = "metadata-repor
       )
     );
 
-    // Convert colors to RGB before PDF generation
-    convertColorsToRGB(el);
+    // Force RGB colors before PDF generation
+    forceRGBColors(el);
 
     // Configure html2pdf with better settings
     const opt = {
@@ -88,55 +87,63 @@ export async function exportReport(elementId: string, filename = "metadata-repor
         logging: false,
         letterRendering: true,
         onclone: (clonedDoc: Document) => {
-          // Convert all colors in the cloned document to RGB
-          // The browser should have already computed oklch to RGB, so we just need to
-          // ensure html2canvas reads the computed values
+          // Remove all style tags with oklch/lab from cloned document
+          const styleTags = clonedDoc.querySelectorAll("style");
+          styleTags.forEach((style) => {
+            if (style.textContent?.includes("oklch") || style.textContent?.includes("lab")) {
+              style.remove();
+            }
+          });
+          
+          // Remove link tags to external stylesheets that might have oklch
+          const linkTags = clonedDoc.querySelectorAll('link[rel="stylesheet"]');
+          linkTags.forEach((link) => link.remove());
+          
           const clonedElement = clonedDoc.getElementById(elementId);
           if (!clonedElement) return;
           
-          // Get the original element to read computed styles
+          // Get original element for computed styles
           const originalElement = document.getElementById(elementId);
           if (!originalElement) return;
           
-          // Traverse both trees in parallel and copy computed styles
-          const walkAndConvert = (original: Element, cloned: Element) => {
+          // Copy computed RGB styles to cloned elements
+          const copyStyles = (original: Element, cloned: Element) => {
             const originalEl = original as HTMLElement;
             const clonedEl = cloned as HTMLElement;
             
             if (originalEl && clonedEl) {
               const computed = window.getComputedStyle(originalEl);
               
-              // Copy computed RGB values to inline styles
               try {
+                // Force RGB colors as inline styles
                 const bg = computed.backgroundColor;
-                if (bg && !bg.includes("oklch") && !bg.includes("lab")) {
-                  clonedEl.style.backgroundColor = bg;
+                if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
+                  clonedEl.style.setProperty("background-color", bg, "important");
                 }
                 
                 const color = computed.color;
-                if (color && !color.includes("oklch") && !color.includes("lab")) {
-                  clonedEl.style.color = color;
+                if (color) {
+                  clonedEl.style.setProperty("color", color, "important");
                 }
                 
-                const borderColor = computed.borderColor;
-                if (borderColor && !borderColor.includes("oklch") && !borderColor.includes("lab")) {
-                  clonedEl.style.borderColor = borderColor;
+                const border = computed.borderColor;
+                if (border && border !== "rgba(0, 0, 0, 0)") {
+                  clonedEl.style.setProperty("border-color", border, "important");
                 }
               } catch (e) {
-                // Ignore errors
+                // Ignore
               }
             }
             
-            // Recursively process children
-            const originalChildren = Array.from(original.children);
+            // Process children
+            const origChildren = Array.from(original.children);
             const clonedChildren = Array.from(cloned.children);
-            
-            for (let i = 0; i < Math.min(originalChildren.length, clonedChildren.length); i++) {
-              walkAndConvert(originalChildren[i], clonedChildren[i]);
+            for (let i = 0; i < Math.min(origChildren.length, clonedChildren.length); i++) {
+              copyStyles(origChildren[i], clonedChildren[i]);
             }
           };
           
-          walkAndConvert(originalElement, clonedElement);
+          copyStyles(originalElement, clonedElement);
         },
       },
       jsPDF: {
