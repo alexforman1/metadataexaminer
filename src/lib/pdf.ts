@@ -76,19 +76,44 @@ export async function exportReport(elementId: string = "report-root-pdf", filena
       )
     );
 
-    // PDFPreview already has explicit RGB colors, so we can use it directly
-    // But we need to make it visible temporarily for html2canvas
-    const originalVisibility = el.style.visibility;
-    const originalPosition = el.style.position;
-    const originalLeft = el.style.left;
-    const originalTop = el.style.top;
+    // Get the parent wrapper and the PDFPreview element
+    const parent = el.parentElement;
+    if (!parent) {
+      console.error("PDFPreview parent not found");
+      return;
+    }
     
-    // Make it visible for html2canvas
+    // Store original styles of both parent and element
+    const originalParentStyles = {
+      position: parent.style.position,
+      left: parent.style.left,
+      top: parent.style.top,
+      zIndex: parent.style.zIndex,
+      visibility: parent.style.visibility,
+    };
+    
+    const originalElementStyles = {
+      visibility: el.style.visibility,
+      position: el.style.position,
+      width: el.style.width,
+      height: el.style.height,
+    };
+    
+    // Make parent and element visible and properly positioned
+    parent.style.position = "fixed";
+    parent.style.left = "0";
+    parent.style.top = "0";
+    parent.style.zIndex = "99999";
+    parent.style.visibility = "visible";
+    parent.style.width = "210mm";
+    parent.style.backgroundColor = "#ffffff";
+    
     el.style.visibility = "visible";
-    el.style.position = "absolute";
-    el.style.left = "0";
-    el.style.top = "0";
-    el.style.zIndex = "9999";
+    el.style.position = "relative";
+    el.style.width = "100%";
+    
+    // Small delay to ensure rendering
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // Configure html2pdf with better settings
     const opt = {
@@ -120,20 +145,32 @@ export async function exportReport(elementId: string = "report-root-pdf", filena
     await html2pdf().set(opt).from(el).save();
     
     // Restore original styles
-    el.style.visibility = originalVisibility;
-    el.style.position = originalPosition;
-    el.style.left = originalLeft;
-    el.style.top = originalTop;
-    el.style.zIndex = "";
+    if (parent) {
+      parent.style.position = originalParentStyles.position;
+      parent.style.left = originalParentStyles.left;
+      parent.style.top = originalParentStyles.top;
+      parent.style.zIndex = originalParentStyles.zIndex;
+      parent.style.visibility = originalParentStyles.visibility;
+      parent.style.width = "";
+      parent.style.backgroundColor = "";
+    }
+    
+    el.style.visibility = originalElementStyles.visibility;
+    el.style.position = originalElementStyles.position;
+    el.style.width = originalElementStyles.width;
+    el.style.height = originalElementStyles.height;
   } catch (error) {
     console.error("PDF export failed:", error);
     // Restore styles on error
-    const el = document.getElementById(elementId);
-    if (el) {
-      el.style.visibility = "hidden";
-      el.style.position = "absolute";
-      el.style.left = "-9999px";
-      el.style.top = "-9999px";
+    const errorEl = document.getElementById(elementId);
+    if (errorEl && errorEl.parentElement) {
+      const errorParent = errorEl.parentElement;
+      errorParent.style.position = "fixed";
+      errorParent.style.left = "-9999px";
+      errorParent.style.top = "0";
+      errorParent.style.zIndex = "-1";
+      errorParent.style.visibility = "hidden";
+      errorEl.style.visibility = "visible";
     }
     alert("Failed to generate PDF. Please try again or check the browser console.");
   }

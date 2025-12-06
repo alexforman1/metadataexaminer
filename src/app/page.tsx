@@ -181,8 +181,8 @@ export default function Page() {
         <Card>
           <CardContent className="p-4">
             <Preview data={reportData} />
-            {/* Hidden PDF version with explicit RGB colors */}
-            <div style={{ position: "absolute", left: "-9999px", top: "-9999px", visibility: "hidden" }}>
+            {/* PDF version with explicit RGB colors - hidden but accessible */}
+            <div style={{ position: "fixed", left: "-9999px", top: "0", width: "210mm", zIndex: -1 }}>
               <PDFPreview data={reportData} />
             </div>
           </CardContent>
